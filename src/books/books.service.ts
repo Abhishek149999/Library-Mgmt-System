@@ -1,13 +1,17 @@
 import { HttpStatus, Injectable, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In, MoreThan } from 'typeorm';
 import { BookEntity } from '../entities/book.entity';
 import { LibraryEntity } from '../entities/library.entity';
-import { MoreThan, Repository } from 'typeorm';
+import { UserEntity } from '../entities/user.entity';
+import { BookBorrowedRecordEntity } from '../entities/bookBorrowed.entity';
 import { BookMapper } from './mapper/BookMapper';
-import { BookBorrowRequest, BookDetail } from './model/BookModel';
-import { BookBorrowedRecordEntity } from 'src/entities/bookBorrowed.entity';
-import { UserEntity } from 'src/entities/user.entity';
-import { LibraryService } from 'src/library/library.service';
+import {
+  BookBorrowRequest,
+  BookDetail,
+  BookReturnRequest,
+} from './model/BookModel';
+import { LibraryService } from '../library/library.service';
 
 @Injectable()
 export class BookService {
@@ -23,6 +27,7 @@ export class BookService {
     private readonly bookMapper: BookMapper,
     private readonly libraryService: LibraryService,
   ) {}
+
   public async addBook(bookDetail: BookDetail, @Res() response: any) {
     try {
       const libraryExist = await this.libraryService.checkLibraryExistence(
@@ -49,8 +54,7 @@ export class BookService {
         response,
         HttpStatus.INTERNAL_SERVER_ERROR,
         {
-          message:
-            'It seems there is some technical glitch at our end, Unable to add library.',
+          message: 'Unable to add book due to a technical glitch.',
           data: err.message,
         },
       );
@@ -66,8 +70,8 @@ export class BookService {
       return response.status(HttpStatus.OK).json({
         success: true,
         message: existingBooks.length
-          ? 'Book fetched successfully'
-          : 'There is no book in library',
+          ? 'Books fetched successfully'
+          : 'There are no books in the library',
         data: existingBooks,
       });
     } catch (err) {
@@ -75,8 +79,7 @@ export class BookService {
         response,
         HttpStatus.INTERNAL_SERVER_ERROR,
         {
-          message:
-            'It seems there is some technical glitch at our end, Unable to add library.',
+          message: 'Unable to fetch books due to a technical glitch.',
           data: err.message,
         },
       );
@@ -93,7 +96,7 @@ export class BookService {
 
       if (!libraryRecord || libraryRecord.bookDetail[0].numberOfCopies === 0) {
         return this.sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
-          message: `Currently book ${bookId} is not available in the library ${libraryId}`,
+          message: `Book ${bookId} is currently not available in the library ${libraryId}`,
           data: borrowRequest,
         });
       }
@@ -103,7 +106,7 @@ export class BookService {
       if (!userEligibility || userEligibility.borrowedRecord.length > 1) {
         const errorMessage = !userEligibility
           ? `User ${userId} does not exist in library ${libraryId}`
-          : 'User has already taken two books and is not eligible to borrow another book.';
+          : 'User has already borrowed two books and is not eligible to borrow another book.';
 
         return this.sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
           message: errorMessage,
@@ -118,10 +121,7 @@ export class BookService {
       );
 
       await this.bookBorrowedRecordRepo.save(borrowRequestRecord);
-      await this.decreaseBookCopyCount(
-        bookId,
-        libraryRecord.bookDetail[0].numberOfCopies,
-      );
+      await this.updateBookCopyCount(bookId, -1);
 
       return response.status(HttpStatus.OK).json({
         success: true,
@@ -133,8 +133,54 @@ export class BookService {
         response,
         HttpStatus.INTERNAL_SERVER_ERROR,
         {
-          message:
-            'It seems there is some technical glitch at our end, Unable to add library.',
+          message: 'Unable to borrow the book due to a technical glitch.',
+          data: err.message,
+        },
+      );
+    }
+  }
+
+  public async returnBook(
+    bookReturnRequest: BookReturnRequest,
+    @Res() response: any,
+  ) {
+    try {
+      const { bookIds, userId } = bookReturnRequest;
+      const borrowedRecords = await this.bookBorrowedRecordRepo.find({
+        where: {
+          book: { id: In(bookIds) },
+          isActive: true,
+          user: { id: userId },
+        },
+        relations: ['user', 'book'],
+      });
+
+      if (borrowedRecords.length === 0) {
+        return this.sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
+          message: `No records found for bookIds ${bookIds} and userId ${userId}`,
+          data: {},
+        });
+      }
+
+      for (const record of borrowedRecords) {
+        await this.bookBorrowedRecordRepo.update(record.id, {
+          isActive: false,
+          returnedAt: new Date(),
+        });
+        await this.updateBookCopyCount(record.book.id, 1);
+      }
+
+      return response.status(HttpStatus.OK).json({
+        success: true,
+        message: `Books ${bookIds} returned successfully`,
+        data: {},
+      });
+    } catch (err) {
+      return this.sendErrorResponse(
+        response,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        {
+          message: 'Unable to return the books due to a technical glitch.',
           data: err.message,
         },
       );
@@ -152,18 +198,19 @@ export class BookService {
 
   private async getUserEligibility(userId: number, libraryId: number) {
     return this.userRepo.findOne({
-      where: { id: userId, library: { id: libraryId } },
+      where: {
+        id: userId,
+        library: { id: libraryId },
+        borrowedRecord: { isActive: true },
+      },
       relations: ['borrowedRecord'],
     });
   }
 
-  private async decreaseBookCopyCount(
-    bookId: number,
-    currentCopyCount: number,
-  ) {
-    await this.bookRepo.update(bookId, {
-      numberOfCopies: currentCopyCount - 1,
-    });
+  private async updateBookCopyCount(bookId: number, countChange: number) {
+    const book = await this.bookRepo.findOne({ where: { id: bookId } });
+    book.numberOfCopies += countChange;
+    await this.bookRepo.save(book);
   }
 
   private sendErrorResponse(response: any, statusCode: number, errorData: any) {

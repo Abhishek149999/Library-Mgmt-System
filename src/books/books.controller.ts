@@ -4,11 +4,17 @@ import {
   Get,
   HttpStatus,
   Param,
+  Patch,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import { BookService } from './books.service';
-import { BookBorrowRequest, BookDetail } from './model/BookModel';
+import {
+  BookBorrowRequest,
+  BookDetail,
+  BookReturnRequest,
+} from './model/BookModel';
 
 @Controller('/book')
 export class BookController {
@@ -51,6 +57,24 @@ export class BookController {
   ) {
     try {
       return await this.bookService.borrowBook(borrowRequest, response);
+    } catch (err) {
+      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message:
+          'It seems there is some technical glitch at our end, Unable to fetch books from library.',
+        error_code: HttpStatus.INTERNAL_SERVER_ERROR,
+        data: err.message,
+      });
+    }
+  }
+
+  @Patch('/return')
+  async returnBook(
+    @Query() bookReturnRequest: BookReturnRequest,
+    @Res() response: any,
+  ) {
+    try {
+      return await this.bookService.returnBook(bookReturnRequest, response);
     } catch (err) {
       return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,

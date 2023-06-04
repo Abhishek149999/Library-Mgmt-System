@@ -22,6 +22,9 @@ export class BookBorrowedRecordEntity {
   @Column({ name: 'RETURNED_AT', nullable: true })
   public returnedAt: Date;
 
+  @Column({ name: 'IS_ACTIVE', default: true })
+  public isActive: boolean;
+
   @ManyToOne(() => UserEntity)
   @JoinColumn({
     name: 'USER_ID',

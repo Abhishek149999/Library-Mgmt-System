@@ -1,4 +1,4 @@
-import { IsNumber, IsString } from 'class-validator';
+import { IsArray, IsNumber, IsString } from 'class-validator';
 
 export class BookDetail {
   @IsString()
@@ -23,4 +23,12 @@ export class BookBorrowRequest {
 
   @IsNumber()
   public libraryId: number;
+}
+
+export class BookReturnRequest {
+  @IsNumber()
+  public userId: number;
+
+  @IsArray()
+  public bookIds: number[];
 }

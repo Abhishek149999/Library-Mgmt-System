@@ -6,6 +6,7 @@ import { typeOrmConfigAsync } from './config/typeorm.config';
 import { ConfigModule } from '@nestjs/config';
 import { BookModule } from './books/books.module';
 import { LibraryModule } from './library/library.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { LibraryModule } from './library/library.module';
     ConfigModule.forRoot(),
     BookModule,
     LibraryModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

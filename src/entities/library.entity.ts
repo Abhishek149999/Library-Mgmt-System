@@ -7,6 +7,8 @@ import {
   OneToMany,
 } from 'typeorm';
 import { BookEntity } from './book.entity';
+import { BookBorrowedRecordEntity } from './bookBorrowed.entity';
+import { UserEntity } from './user.entity';
 
 @Entity({ name: 'LIBRARY_ENTITY' })
 export class LibraryEntity {
@@ -27,4 +29,10 @@ export class LibraryEntity {
 
   @OneToMany(() => BookEntity, (book) => book.library, { cascade: true })
   public bookDetail: BookEntity[];
+
+  @OneToMany(() => UserEntity, (user) => user.library, { cascade: true })
+  public userDetail: UserEntity[];
+
+  @OneToMany(() => BookBorrowedRecordEntity, (record) => record.library)
+  public borrowedRecord: BookBorrowedRecordEntity[];
 }

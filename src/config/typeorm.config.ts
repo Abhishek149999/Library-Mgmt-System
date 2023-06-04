@@ -10,7 +10,7 @@ export default class TypeOrmConfig {
       password: configService.get('TYPEORM_PASSWORD'),
       database: configService.get('TYPEORM_DATABASE'),
       entities: ['dist/**/*.entity.js'],
-      synchronize: true,
+      synchronize: configService.get('TYPEORM_SYNCHRONIZE'),
       logging: false,
     };
   }

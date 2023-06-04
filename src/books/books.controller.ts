@@ -32,7 +32,7 @@ export class BookController {
   @Get('/:libraryId')
   async getBooks(@Param('libraryId') libraryId: number, @Res() response: any) {
     try {
-      await this.bookService.getBooks(libraryId, response);
+      return await this.bookService.getBooks(libraryId, response);
     } catch (err) {
       return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         success: false,

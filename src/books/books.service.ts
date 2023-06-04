@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { BookEntity } from 'src/entities/book.entity';
-import { LibraryEntity } from 'src/entities/library.entity';
+import { BookEntity } from '../entities/book.entity';
+import { LibraryEntity } from '../entities/library.entity';
 import { Repository } from 'typeorm';
 import { BookMapper } from './mapper/BookMapper';
 import { BookDetail } from './model/BookModel';

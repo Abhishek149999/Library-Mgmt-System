@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Builder } from 'builder-pattern';
 import { BookDetail } from '../model/BookModel';
-import { BookEntity } from 'src/entities/book.entity';
-import { LibraryEntity } from 'src/entities/library.entity';
+import { BookEntity } from '../../entities/book.entity';
+import { LibraryEntity } from '../../entities/library.entity';
 
 @Injectable()
 export class BookMapper {

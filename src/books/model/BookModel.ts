@@ -13,3 +13,14 @@ export class BookDetail {
   @IsNumber()
   public libraryId: number;
 }
+
+export class BookBorrowRequest {
+  @IsNumber()
+  public userId: number;
+
+  @IsNumber()
+  public bookId: number;
+
+  @IsNumber()
+  public libraryId: number;
+}

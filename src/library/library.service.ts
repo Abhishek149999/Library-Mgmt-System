@@ -29,4 +29,8 @@ export class LibraryService {
       });
     }
   }
+
+  public async checkLibraryExistence(libraryId: number) {
+    return this.libraryRepo.findOne({ where: { id: libraryId } });
+  }
 }

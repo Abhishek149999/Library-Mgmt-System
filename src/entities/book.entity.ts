@@ -6,7 +6,9 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
+import { BookBorrowedRecordEntity } from './bookBorrowed.entity';
 import { LibraryEntity } from './library.entity';
 
 @Entity({ name: 'BOOK_ENTITY' })
@@ -35,4 +37,7 @@ export class BookEntity {
     referencedColumnName: 'id',
   })
   public library: LibraryEntity;
+
+  @OneToMany(() => BookBorrowedRecordEntity, (record) => record.library)
+  public borrowedRecord: BookBorrowedRecordEntity[];
 }

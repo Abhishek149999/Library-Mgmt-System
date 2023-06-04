@@ -24,5 +24,6 @@ import { format, transports } from 'winston';
   ],
   controllers: [LibraryController],
   providers: [LibraryService],
+  exports: [LibraryService],
 })
 export class LibraryModule {}

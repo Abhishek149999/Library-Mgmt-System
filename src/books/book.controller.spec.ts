@@ -5,7 +5,20 @@ import { BookService } from './books.service';
 describe('BookController', () => {
   let bookController: BookController;
   let bookService: BookService;
-
+  const mockResponse = {
+    success: true,
+    message: 'Book fetched successfully',
+    data: [
+      {
+        id: 1,
+        name: 'Treasure island',
+        author: 'Robert Louis Stevenson',
+        numberOfCopies: 10,
+        createdAt: '2023-06-04T14:14:38.505Z',
+        updatedAt: '2023-06-04T14:36:59.557Z',
+      },
+    ],
+  };
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BookController],
@@ -13,20 +26,7 @@ describe('BookController', () => {
         {
           provide: BookService,
           useValue: {
-            getBooks: jest.fn().mockResolvedValue({
-              success: true,
-              message: 'Book fetched successfully',
-              data: [
-                {
-                  id: 1,
-                  name: 'Treasure island',
-                  author: 'Robert Louis Stevenson',
-                  numberOfCopies: 10,
-                  createdAt: '2023-06-04T14:14:38.505Z',
-                  updatedAt: '2023-06-04T14:36:59.557Z',
-                },
-              ],
-            }),
+            getBooks: jest.fn().mockResolvedValue(mockResponse),
           },
         },
       ],
@@ -51,20 +51,6 @@ describe('BookController', () => {
       const response = {
         status: jest.fn().mockReturnThis(),
         json: jest.fn(),
-      };
-      const mockResponse = {
-        success: true,
-        message: 'Book fetched successfully',
-        data: [
-          {
-            id: 1,
-            name: 'Treasure island',
-            author: 'Robert Louis Stevenson',
-            numberOfCopies: 10,
-            createdAt: '2023-06-04T14:14:38.505Z',
-            updatedAt: '2023-06-04T14:36:59.557Z',
-          },
-        ],
       };
       const outputByAPI = await bookController.getBooks(libraryId, response);
       expect(JSON.stringify(outputByAPI)).toBe(JSON.stringify(mockResponse));

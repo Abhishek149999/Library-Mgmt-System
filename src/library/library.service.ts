@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LibraryEntity } from 'src/entities/library.entity';
-import { sendErrorResponse } from 'src/utils/util';
+import { LibraryEntity } from '../entities/library.entity';
+import { sendErrorResponse } from '../utils/util';
 import { Repository } from 'typeorm';
 import { LibraryModel } from './model/libraryModel';
 

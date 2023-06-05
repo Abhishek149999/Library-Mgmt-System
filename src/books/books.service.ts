@@ -12,6 +12,7 @@ import {
   BookReturnRequest,
 } from './model/BookModel';
 import { LibraryService } from '../library/library.service';
+import { sendErrorResponse } from '../utils/util';
 
 @Injectable()
 export class BookService {
@@ -35,7 +36,7 @@ export class BookService {
       );
 
       if (!libraryExist) {
-        return this.sendErrorResponse(response, HttpStatus.CONFLICT, {
+        return sendErrorResponse(response, HttpStatus.CONFLICT, {
           message: `Library with id ${bookDetail.libraryId} does not exist.`,
           data: bookDetail,
         });
@@ -50,14 +51,10 @@ export class BookService {
         data: savedBook,
       });
     } catch (err) {
-      return this.sendErrorResponse(
-        response,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        {
-          message: 'Unable to add book due to a technical glitch.',
-          data: err.message,
-        },
-      );
+      return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: 'Unable to add book due to a technical glitch.',
+        data: err.message,
+      });
     }
   }
 
@@ -75,14 +72,10 @@ export class BookService {
         data: existingBooks,
       });
     } catch (err) {
-      return this.sendErrorResponse(
-        response,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        {
-          message: 'Unable to fetch books due to a technical glitch.',
-          data: err.message,
-        },
-      );
+      return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: 'Unable to fetch books due to a technical glitch.',
+        data: err.message,
+      });
     }
   }
 
@@ -95,20 +88,25 @@ export class BookService {
       const libraryRecord = await this.getLibraryRecord(libraryId, bookId);
 
       if (!libraryRecord || libraryRecord.bookDetail[0].numberOfCopies === 0) {
-        return this.sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
+        return sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
           message: `Book ${bookId} is currently not available in the library ${libraryId}`,
           data: borrowRequest,
         });
       }
 
-      const userEligibility = await this.getUserEligibility(userId, libraryId);
+      const userEligibility = await this.getUserEligibility(userId);
+      console.log(userEligibility);
 
-      if (!userEligibility || userEligibility.borrowedRecord.length > 1) {
+      if (
+        !userEligibility ||
+        (userEligibility.borrowedRecord &&
+          userEligibility.borrowedRecord.length > 1)
+      ) {
         const errorMessage = !userEligibility
           ? `User ${userId} does not exist in library ${libraryId}`
           : 'User has already borrowed two books and is not eligible to borrow another book.';
 
-        return this.sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
+        return sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
           message: errorMessage,
           data: borrowRequest,
         });
@@ -129,14 +127,10 @@ export class BookService {
         data: borrowRequest,
       });
     } catch (err) {
-      return this.sendErrorResponse(
-        response,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        {
-          message: 'Unable to borrow the book due to a technical glitch.',
-          data: err.message,
-        },
-      );
+      return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: 'Unable to borrow the book due to a technical glitch.',
+        data: err.message,
+      });
     }
   }
 
@@ -156,7 +150,7 @@ export class BookService {
       });
 
       if (borrowedRecords.length === 0) {
-        return this.sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
+        return sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
           message: `No records found for bookIds ${bookIds} and userId ${userId}`,
           data: {},
         });
@@ -176,19 +170,15 @@ export class BookService {
         data: {},
       });
     } catch (err) {
-      return this.sendErrorResponse(
-        response,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        {
-          message: 'Unable to return the books due to a technical glitch.',
-          data: err.message,
-        },
-      );
+      return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
+        message: 'Unable to return the books due to a technical glitch.',
+        data: err.message,
+      });
     }
   }
 
   private async getLibraryRecord(libraryId: number, bookId: number) {
-    return this.libraryRepo
+    return await this.libraryRepo
       .createQueryBuilder('libraryDetail')
       .leftJoinAndSelect('libraryDetail.bookDetail', 'bookDetail')
       .where('libraryDetail.id = :libraryId', { libraryId })
@@ -196,29 +186,22 @@ export class BookService {
       .getOne();
   }
 
-  private async getUserEligibility(userId: number, libraryId: number) {
-    return this.userRepo.findOne({
-      where: {
-        id: userId,
-        library: { id: libraryId },
-        borrowedRecord: { isActive: true },
-      },
-      relations: ['borrowedRecord'],
-    });
+  private async getUserEligibility(userId: number): Promise<any> {
+    return await this.userRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect(
+        'user.borrowedRecord',
+        'borrowedRecord',
+        'borrowedRecord.isActive = :isActive',
+        { isActive: true },
+      )
+      .where('user.id = :userId', { userId })
+      .getOne();
   }
 
   private async updateBookCopyCount(bookId: number, countChange: number) {
     const book = await this.bookRepo.findOne({ where: { id: bookId } });
     book.numberOfCopies += countChange;
     await this.bookRepo.save(book);
-  }
-
-  private sendErrorResponse(response: any, statusCode: number, errorData: any) {
-    return response.status(statusCode).json({
-      success: false,
-      message: errorData.message,
-      error_code: statusCode,
-      data: errorData.data,
-    });
   }
 }

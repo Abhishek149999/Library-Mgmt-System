@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LibraryEntity } from 'src/entities/library.entity';
+import { sendErrorResponse } from 'src/utils/util';
 import { Repository } from 'typeorm';
 import { LibraryModel } from './model/libraryModel';
 
@@ -20,12 +21,10 @@ export class LibraryService {
         data: savedLibrary,
       });
     } catch (err) {
-      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message:
+      return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
+        mesage:
           'It seems there is some technical glitch at our end, Unable to add library.',
-        error_code: HttpStatus.INTERNAL_SERVER_ERROR,
-        data: err.message,
+        data: err.mesage,
       });
     }
   }

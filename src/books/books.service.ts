@@ -13,6 +13,10 @@ import {
 } from './model/BookModel';
 import { LibraryService } from '../library/library.service';
 import { sendErrorResponse } from '../utils/util';
+import {
+  InjectLogger,
+  NestjsWinstonLoggerService,
+} from 'nestjs-winston-logger';
 
 @Injectable()
 export class BookService {
@@ -27,17 +31,23 @@ export class BookService {
     private readonly bookBorrowedRecordRepo: Repository<BookBorrowedRecordEntity>,
     private readonly bookMapper: BookMapper,
     private readonly libraryService: LibraryService,
+    @InjectLogger() private logger: NestjsWinstonLoggerService,
   ) {}
 
   public async addBook(bookDetail: BookDetail, @Res() response: any) {
     try {
+      this.logger.debug(`Adding book ${JSON.stringify(bookDetail)}`);
+
+      // Checking whether library exists or not.
       const libraryExist = await this.libraryService.checkLibraryExistence(
         bookDetail.libraryId,
       );
 
       if (!libraryExist) {
+        const errorMessage = `Library with id ${bookDetail.libraryId} does not exist.`;
+        this.logger.warn(errorMessage);
         return sendErrorResponse(response, HttpStatus.CONFLICT, {
-          message: `Library with id ${bookDetail.libraryId} does not exist.`,
+          message: errorMessage,
           data: bookDetail,
         });
       }
@@ -45,12 +55,16 @@ export class BookService {
       const bookData = this.bookMapper.toBookEntity(bookDetail, libraryExist);
       const savedBook = await this.bookRepo.save(bookData);
 
+      this.logger.debug(
+        `Book added successfully ${JSON.stringify(savedBook)} `,
+      );
       return response.status(HttpStatus.OK).json({
         success: true,
         message: 'Book added successfully',
         data: savedBook,
       });
     } catch (err) {
+      this.logger.error(`Error adding book: ${err.message}`);
       return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
         message: 'Unable to add book due to a technical glitch.',
         data: err.message,
@@ -60,18 +74,26 @@ export class BookService {
 
   public async getBooks(libraryId: number, @Res() response: any) {
     try {
+      this.logger.debug(`Fetching books for libraryId ${libraryId}`);
+
+      // Fetching all books which have at least one copy.
       const existingBooks = await this.bookRepo.find({
         where: { library: { id: libraryId }, numberOfCopies: MoreThan(0) },
       });
 
+      const message = existingBooks.length
+        ? 'Books fetched successfully'
+        : 'There are no books in the library';
+
+      this.logger.debug(`Books fetched: ${existingBooks.length}`);
+
       return response.status(HttpStatus.OK).json({
         success: true,
-        message: existingBooks.length
-          ? 'Books fetched successfully'
-          : 'There are no books in the library',
+        message,
         data: existingBooks,
       });
     } catch (err) {
+      this.logger.error(`Error fetching books: ${err.message}`);
       return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
         message: 'Unable to fetch books due to a technical glitch.',
         data: err.message,
@@ -84,18 +106,24 @@ export class BookService {
     @Res() response: any,
   ) {
     try {
+      this.logger.debug(`Borrowing book ${JSON.stringify(borrowRequest)}`);
+
       const { libraryId, bookId, userId } = borrowRequest;
+
+      // Checking whether book exists with available copies in Library or not.
       const libraryRecord = await this.getLibraryRecord(libraryId, bookId);
 
       if (!libraryRecord || libraryRecord.bookDetail[0].numberOfCopies === 0) {
+        const errorMessage = `Book ${bookId} is currently not available in the library ${libraryId}`;
+        this.logger.warn(errorMessage);
         return sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
-          message: `Book ${bookId} is currently not available in the library ${libraryId}`,
+          message: errorMessage,
           data: borrowRequest,
         });
       }
 
+      // Checking whether user has taken more than 1 book.
       const userEligibility = await this.getUserEligibility(userId);
-      console.log(userEligibility);
 
       if (
         !userEligibility ||
@@ -106,12 +134,14 @@ export class BookService {
           ? `User ${userId} does not exist in library ${libraryId}`
           : 'User has already borrowed two books and is not eligible to borrow another book.';
 
+        this.logger.warn(errorMessage);
         return sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
           message: errorMessage,
           data: borrowRequest,
         });
       }
 
+      // Adding record of book borrowed in record entity.
       const borrowRequestRecord = this.bookMapper.toBookBorrowEntityRecord(
         userEligibility,
         libraryRecord.bookDetail[0],
@@ -119,14 +149,20 @@ export class BookService {
       );
 
       await this.bookBorrowedRecordRepo.save(borrowRequestRecord);
+
+      // Decreasing number of available copies of book.
       await this.updateBookCopyCount(bookId, -1);
 
+      this.logger.debug(
+        `Book borrowed successfully ${JSON.stringify(borrowRequest)}`,
+      );
       return response.status(HttpStatus.OK).json({
         success: true,
         message: `Book ${bookId} borrowed successfully`,
         data: borrowRequest,
       });
     } catch (err) {
+      this.logger.error(`Error borrowing book ${err.message}`);
       return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
         message: 'Unable to borrow the book due to a technical glitch.',
         data: err.message,
@@ -139,7 +175,11 @@ export class BookService {
     @Res() response: any,
   ) {
     try {
+      this.logger.debug(`Returning books ${JSON.stringify(bookReturnRequest)}`);
+
       const { bookIds, userId } = bookReturnRequest;
+
+      // Finding books records given with bookId along with the user.
       const borrowedRecords = await this.bookBorrowedRecordRepo.find({
         where: {
           book: { id: In(bookIds) },
@@ -150,26 +190,35 @@ export class BookService {
       });
 
       if (borrowedRecords.length === 0) {
+        const errorMessage = `No records found for bookIds ${bookIds} and userId ${userId}`;
+        this.logger.warn(errorMessage);
         return sendErrorResponse(response, HttpStatus.BAD_REQUEST, {
-          message: `No records found for bookIds ${bookIds} and userId ${userId}`,
+          message: errorMessage,
           data: {},
         });
       }
 
+      // As user can return multiple books, so updating the record of books in a loop.
       for (const record of borrowedRecords) {
         await this.bookBorrowedRecordRepo.update(record.id, {
           isActive: false,
           returnedAt: new Date(),
         });
+
+        // As the user has returned the book, increasing the number of book copies.
         await this.updateBookCopyCount(record.book.id, 1);
       }
 
+      this.logger.debug(
+        `Books returned successfully ${JSON.stringify(bookReturnRequest)}`,
+      );
       return response.status(HttpStatus.OK).json({
         success: true,
         message: `Books ${bookIds} returned successfully`,
         data: {},
       });
     } catch (err) {
+      this.logger.error(`Error returning books: ${err.message}`);
       return sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, {
         message: 'Unable to return the books due to a technical glitch.',
         data: err.message,

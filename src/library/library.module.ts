@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NestjsWinstonLoggerModule } from 'nestjs-winston-logger';
-import { LibraryEntity } from 'src/entities/library.entity';
+import { LibraryEntity } from '../entities/library.entity';
 import { LibraryController } from './library.controller';
 import { LibraryService } from './library.service';
 import { format, transports } from 'winston';

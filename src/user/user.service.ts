@@ -1,8 +1,8 @@
 import { HttpStatus, Injectable, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserEntity } from 'src/entities/user.entity';
-import { LibraryService } from 'src/library/library.service';
+import { UserEntity } from '../entities/user.entity';
+import { LibraryService } from '../library/library.service';
 import { UserModel } from './model/userModel';
 import { sendErrorResponse } from '../utils/util';
 
